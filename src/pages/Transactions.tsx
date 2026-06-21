@@ -324,8 +324,43 @@ function TxDetailPanel({ tx, onClose, onToggleStage, onRefresh, isMobile }: {
     onRefresh();
   };
 
+    const panelStyle = isMobile ? {
+      position: 'fixed' as const,
+      inset: 0,
+      width: '100vw',
+      height: '100vh',
+      background: 'rgba(14,14,14,0.98)',
+      backdropFilter: 'blur(24px)',
+      WebkitBackdropFilter: 'blur(24px)',
+      zIndex: 100,
+      overflow: 'auto',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      paddingTop: 'max(0px, env(safe-area-inset-top, 0px))',
+      paddingBottom: 'max(0px, env(safe-area-inset-bottom, 0px))'
+    } : {
+      width: 360,
+      background: '#111',
+      borderRight: '1px solid #1e1e1e',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      height: '100vh',
+      overflow: 'hidden'
+    };
+
   return (
-    <div style={{ width: isMobile ? '100%' : 360, background: '#111', borderRight: isMobile ? 'none' : '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', height: isMobile ? 'auto' : '100vh', overflow: 'hidden', minHeight: isMobile ? 'auto' : '100vh' }}>
+    <div style={panelStyle}>
+      {isMobile && (
+        <div style={{ padding: 14, borderBottom: '1px solid #1e1e1e' }}>
+          <button onClick={onClose} style={{
+            background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 10,
+            padding: 10, cursor: 'pointer', color: '#ccc', fontWeight: 600, fontSize: 13,
+            display: 'flex', alignItems: 'center', gap: 4, minHeight: 44
+          }}>
+            ← رجوع
+          </button>
+        </div>
+      )}
       {!isMobile && (
         <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
@@ -437,7 +472,11 @@ function AddTypeModal({ onClose, onSaved, isMobile }: { onClose: () => void; onS
   const [description, setDescription] = useState('');
   const [stages, setStages] = useState<{ name: string; description: string; notes: string; imageFile: File | null }[]>([]);
   const [saving, setSaving] = useState(false);
-  const inp: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid #252525', borderRadius: 10, padding: '10px 14px', color: '#e8e8e8', fontSize: 13 };
+  const inp: React.CSSProperties = {
+    width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid #252525',
+    borderRadius: 10, padding: isMobile ? '12px 14px' : '10px 14px',
+    color: '#e8e8e8', fontSize: isMobile ? 14 : 13, minHeight: isMobile ? 48 : 'auto'
+  };
 
   const addStage = () => setStages(s => [...s, { name: '', description: '', notes: '', imageFile: null }]);
   const updateStage = (i: number, key: string, value: any) => setStages(s => s.map((st, j) => j === i ? { ...st, [key]: value } : st));
@@ -464,11 +503,26 @@ function AddTypeModal({ onClose, onSaved, isMobile }: { onClose: () => void; onS
     onSaved();
   };
 
-  const modalWidth = isMobile ? 'calc(100vw - 24px)' : 560;
+  const modalWidth = isMobile ? '100vw' : 560;
 
   return (
-    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(20px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '12px' : '0' }}>
-      <div className="modal-content" style={{ background: 'rgba(14,14,14,0.9)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(40px)', borderRadius: 20, padding: 24, width: modalWidth, maxWidth: modalWidth, maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className="modal-overlay" style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(24px)',
+      zIndex: 50, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center',
+      justifyContent: 'center', padding: isMobile ? 0 : undefined
+    }}>
+      <div className="modal-content" style={{
+        background: 'rgba(14,14,14,0.97)',
+        border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.08)',
+        backdropFilter: 'blur(40px)',
+        borderRadius: isMobile ? '20px 20px 0 0' : 20,
+        padding: isMobile ? 20 : 24,
+        paddingTop: isMobile ? 'max(20px, env(safe-area-inset-top, 20px))' : 24,
+        paddingBottom: isMobile ? 'max(20px, env(safe-area-inset-bottom, 20px))' : 24,
+        width: modalWidth, maxWidth: modalWidth,
+        maxHeight: isMobile ? '92vh' : '90vh',
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch'
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 16, color: '#e8e8e8' }}>نوع معاملة جديد</div>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#aaa' }}><X size={16} /></button>
@@ -533,7 +587,6 @@ function AddTxModal({ types, clients, onClose, onSaved, isMobile }: { types: Tra
 
   const selectedType = types.find(t => t.id === typeId);
   const districts = getDistricts(governorate);
-  const inp: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid #252525', borderRadius: 10, padding: '10px 14px', color: '#e8e8e8', fontSize: 13 };
 
   const save = async () => {
     if (!typeId) return;
@@ -554,11 +607,32 @@ function AddTxModal({ types, clients, onClose, onSaved, isMobile }: { types: Tra
     onSaved();
   };
 
-  const modalWidth = isMobile ? 'calc(100vw - 24px)' : 520;
+  const inp: React.CSSProperties = {
+    width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid #252525',
+    borderRadius: 10, padding: isMobile ? '12px 14px' : '10px 14px',
+    color: '#e8e8e8', fontSize: isMobile ? 14 : 13, minHeight: isMobile ? 48 : 'auto'
+  };
+
+  const modalWidth = isMobile ? '100vw' : 520;
 
   return (
-    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(20px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '12px' : '0' }}>
-      <div className="modal-content" style={{ background: 'rgba(14,14,14,0.9)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(40px)', borderRadius: 20, padding: 24, width: modalWidth, maxWidth: modalWidth, maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className="modal-overlay" style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(24px)',
+      zIndex: 50, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center',
+      justifyContent: 'center', padding: isMobile ? 0 : undefined
+    }}>
+      <div className="modal-content" style={{
+        background: 'rgba(14,14,14,0.97)',
+        border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.08)',
+        backdropFilter: 'blur(40px)',
+        borderRadius: isMobile ? '20px 20px 0 0' : 20,
+        padding: isMobile ? 20 : 24,
+        paddingTop: isMobile ? 'max(20px, env(safe-area-inset-top, 20px))' : 24,
+        paddingBottom: isMobile ? 'max(20px, env(safe-area-inset-bottom, 20px))' : 24,
+        width: modalWidth, maxWidth: modalWidth,
+        maxHeight: isMobile ? '92vh' : '90vh',
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch'
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 16, color: '#e8e8e8' }}>معاملة جديدة</div>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#aaa' }}><X size={16} /></button>

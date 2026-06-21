@@ -362,22 +362,41 @@ function WorkDetailPanel({ work, onClose, onToggleItem, onRefresh, isMobile }: {
   const items = work.items ?? [];
   const files = work.files ?? [];
 
+  const panelStyle = isMobile ? {
+    position: 'fixed' as const,
+    inset: 0,
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(14,14,14,0.98)',
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
+    zIndex: 100,
+    overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    paddingTop: 'max(0px, env(safe-area-inset-top, 0px))',
+    paddingBottom: 'max(0px, env(safe-area-inset-bottom, 0px))'
+  } : {
+    width: 340,
+    background: '#111',
+    borderRight: '1px solid #1e1e1e',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    height: '100vh',
+    overflow: 'hidden'
+  };
+
   return (
-    <div style={{
-      width: isMobile ? '100%' : 340,
-      background: '#111',
-      borderRight: isMobile ? 'none' : '1px solid #1e1e1e',
-      display: 'flex',
-      flexDirection: 'column',
-      height: isMobile ? 'auto' : '100vh',
-      minHeight: isMobile ? '100vh' : 'auto',
-      overflow: isMobile ? 'auto' : 'hidden'
-    }}>
-      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+    <div style={panelStyle}>
+      <div style={{ padding: isMobile ? 14 : '16px 16px 12px', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {isMobile && (
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 0, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
-              <ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} /> رجوع
+            <button onClick={onClose} style={{
+              background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 10,
+              padding: 10, cursor: 'pointer', color: '#ccc', fontWeight: 600, fontSize: 13,
+              display: 'flex', alignItems: 'center', gap: 4, minHeight: 44
+            }}>
+              ← رجوع
             </button>
           )}
           <div style={{ fontWeight: 700, fontSize: 15, color: '#e8e8e8' }}>{work.area_name}</div>
@@ -499,20 +518,31 @@ function AddWorkModal({ clients, form, setForm, formItems, setFormItems, newItem
   saving: boolean; onSave: () => void; onClose: () => void; isMobile: boolean;
 }) {
   const districts = getDistricts(form.governorate);
-  const inp: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid #252525', borderRadius: 10, padding: '10px 14px', color: '#e8e8e8', fontSize: 13 };
+  const inp: React.CSSProperties = {
+    width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid #252525',
+    borderRadius: 10, padding: isMobile ? '12px 14px' : '10px 14px',
+    color: '#e8e8e8', fontSize: isMobile ? 14 : 13, minHeight: isMobile ? 48 : 'auto'
+  };
 
   return (
-    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(20px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="modal-overlay" style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(24px)',
+      zIndex: 50, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center',
+      justifyContent: 'center', padding: isMobile ? 0 : undefined
+    }}>
       <div className="modal-content" style={{
-        background: 'rgba(14,14,14,0.9)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'rgba(14,14,14,0.97)',
+        border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.08)',
         backdropFilter: 'blur(40px)',
-        borderRadius: 20,
-        padding: 24,
-        width: isMobile ? 'calc(100vw - 24px)' : 540,
-        maxWidth: isMobile ? 'calc(100vw - 24px)' : '540px',
-        maxHeight: '90vh',
-        overflowY: 'auto'
+        borderRadius: isMobile ? '20px 20px 0 0' : 20,
+        padding: isMobile ? 20 : 24,
+        paddingTop: isMobile ? 'max(20px, env(safe-area-inset-top, 20px))' : 24,
+        paddingBottom: isMobile ? 'max(20px, env(safe-area-inset-bottom, 20px))' : 24,
+        width: isMobile ? '100vw' : 540,
+        maxWidth: isMobile ? '100vw' : '540px',
+        maxHeight: isMobile ? '92vh' : '90vh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 16, color: '#e8e8e8' }}>عمل مساحي جديد</div>

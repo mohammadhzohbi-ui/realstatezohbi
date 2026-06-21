@@ -210,19 +210,27 @@ export default function Clients() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(20px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '12px' : undefined }}>
+        <div className="modal-overlay" style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(24px)',
+          zIndex: 50, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center',
+          justifyContent: 'center', padding: isMobile ? 0 : undefined
+        }}>
           <div className="modal-content" style={{
-            background: 'rgba(14,14,14,0.9)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(14,14,14,0.97)',
+            border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.08)',
             backdropFilter: 'blur(40px)',
-            borderRadius: 20,
-            padding: 24,
-            width: isMobile ? 'calc(100vw - 24px)' : 460,
-            maxWidth: isMobile ? 'calc(100vw - 24px)' : undefined
+            borderRadius: isMobile ? '20px 20px 0 0' : 20,
+            padding: isMobile ? 20 : 24,
+            paddingTop: isMobile ? 'max(20px, env(safe-area-inset-top, 20px))' : 24,
+            paddingBottom: isMobile ? 'max(20px, env(safe-area-inset-bottom, 20px))' : 24,
+            width: isMobile ? '100vw' : 460,
+            maxWidth: isMobile ? '100vw' : 460,
+            maxHeight: isMobile ? '92vh' : '90vh',
+            overflowY: 'auto', WebkitOverflowScrolling: 'touch'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: '#e8e8e8' }}>{editing ? 'تعديل الزبون' : 'زبون جديد'}</div>
-              <button onClick={() => setShowModal(false)} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#aaa' }}><X size={16} /></button>
+              <button onClick={() => setShowModal(false)} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#aaa', minHeight: 40 }}><X size={18} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
@@ -234,19 +242,19 @@ export default function Clients() {
                 <div key={key}>
                   <label style={{ display: 'block', fontSize: 12, color: '#888', marginBottom: 6, fontWeight: 500 }}>{label}</label>
                   <input type={type} value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                    placeholder={placeholder} style={inp} />
+                    placeholder={placeholder} style={{ ...inp, minHeight: isMobile ? 48 : 'auto', fontSize: isMobile ? 14 : 13 }} />
                 </div>
               ))}
               <div>
                 <label style={{ display: 'block', fontSize: 12, color: '#888', marginBottom: 6, fontWeight: 500 }}>ملاحظات</label>
                 <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                  rows={3} placeholder="ملاحظات..." style={{ ...inp, resize: 'none' }} />
+                  rows={3} placeholder="ملاحظات..." style={{ ...inp, resize: 'none', fontSize: isMobile ? 14 : 13 }} />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setShowModal(false)} className="btn-secondary" style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 600 }}>إلغاء</button>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, flexDirection: isMobile ? 'column' : 'row' }}>
+              <button onClick={() => setShowModal(false)} className="btn-secondary" style={{ flex: 1, padding: isMobile ? 14 : '11px', borderRadius: 12, fontSize: 13, fontWeight: 600, minHeight: isMobile ? 48 : 'auto' }}>إلغاء</button>
               <button onClick={save} disabled={saving || !form.name.trim()} className="btn-primary"
-                style={{ flex: 2, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 600 }}>
+                style={{ flex: isMobile ? 1 : 2, padding: isMobile ? 14 : '11px', borderRadius: 12, fontSize: 13, fontWeight: 600, minHeight: isMobile ? 48 : 'auto' }}>
                 {saving ? 'جاري الحفظ...' : editing ? 'حفظ التعديلات' : 'إضافة الزبون'}
               </button>
             </div>
@@ -274,12 +282,15 @@ function ClientDetailPanel({ client, surveyWorks, transactions, files, loading, 
     inset: 0,
     width: '100vw',
     height: '100vh',
-    background: 'rgba(14,14,14,0.97)',
-    backdropFilter: 'blur(20px)',
-    zIndex: 40,
+    background: 'rgba(14,14,14,0.98)',
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
+    zIndex: 100,
     overflow: 'auto',
     display: 'flex',
-    flexDirection: 'column' as const
+    flexDirection: 'column' as const,
+    paddingTop: 'max(0px, env(safe-area-inset-top, 0px))',
+    paddingBottom: 'max(0px, env(safe-area-inset-bottom, 0px))'
   } : {
     width: 420,
     background: '#111',
@@ -293,10 +304,14 @@ function ClientDetailPanel({ client, surveyWorks, transactions, files, loading, 
   return (
     <div style={panelStyle}>
       {/* Header */}
-      <div style={{ padding: 16, borderBottom: '1px solid #1e1e1e' }}>
+      <div style={{ padding: isMobile ? 14 : 16, borderBottom: '1px solid #1e1e1e' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           {isMobile && (
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#aaa', fontWeight: 600, fontSize: 12 }}>
+            <button onClick={onClose} style={{
+              background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 10,
+              padding: 10, cursor: 'pointer', color: '#ccc', fontWeight: 600, fontSize: 13,
+              display: 'flex', alignItems: 'center', gap: 4, minHeight: 44
+            }}>
               ← رجوع
             </button>
           )}
@@ -325,16 +340,18 @@ function ClientDetailPanel({ client, surveyWorks, transactions, files, loading, 
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
+      <div style={{ display: 'flex', gap: 4, padding: isMobile ? 10 : 12, background: 'rgba(255,255,255,0.02)', flexWrap: 'wrap' }}>
         {(['overview', 'works', 'transactions', 'files'] as const).map(tab => {
           const labels = { overview: 'نظرة عامة', works: `الأعمال (${surveyWorks.length})`, transactions: `المعاملات (${transactions.length})`, files: `الملفات (${files.length})` };
           return (
             <button key={tab} onClick={() => setActiveTab(tab)}
               style={{
-                flex: 1, padding: 8, borderRadius: 8, border: 'none', cursor: 'pointer',
-                fontSize: isMobile ? 10 : 11, fontWeight: 600, transition: 'all 0.2s',
-                background: activeTab === tab ? 'linear-gradient(135deg, #f97316, #d4952b)' : 'transparent',
-                color: activeTab === tab ? 'white' : '#666'
+                flex: 1, minWidth: isMobile ? '45%' : 'auto',
+                padding: isMobile ? 12 : 10, borderRadius: 10, border: 'none', cursor: 'pointer',
+                fontSize: isMobile ? 12 : 11, fontWeight: 600, transition: 'all 0.2s',
+                background: activeTab === tab ? 'linear-gradient(135deg, #f97316, #d4952b)' : 'rgba(255,255,255,0.04)',
+                color: activeTab === tab ? 'white' : '#888',
+                minHeight: isMobile ? 44 : 'auto'
               }}>
               {labels[tab]}
             </button>
