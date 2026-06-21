@@ -1,8 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Search, User, Phone, Mail, MapPin, Trash2, Edit3, Check } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, X, Search, User, Phone, Mail, MapPin, Trash2, Edit3, Check, FileText, Ruler, Camera, Paperclip, Download, ExternalLink } from 'lucide-react';
+import { supabase, uploadFile } from '../lib/supabase';
 import { useIsMobile } from '../hooks/useIsMobile';
-import type { Client } from '../types';
+import type { Client, SurveyWork, Transaction } from '../types';
+
+interface ClientFile {
+  id: string;
+  name: string;
+  file_url?: string;
+  context: string;
+  contextId: string;
+  contextName: string;
+  created_at: string;
+}
 
 export default function Clients() {
   const isMobile = useIsMobile();
@@ -14,12 +24,60 @@ export default function Clients() {
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', notes: '' });
   const [saving, setSaving] = useState(false);
 
+  // Client detail data
+  const [clientSurveyWorks, setClientSurveyWorks] = useState<SurveyWork[]>([]);
+  const [clientTransactions, setClientTransactions] = useState<Transaction[]>([]);
+  const [clientFiles, setClientFiles] = useState<ClientFile[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
   const fetchClients = useCallback(async () => {
     const { data } = await supabase.from('clients').select('*').order('name');
     if (data) setClients(data);
   }, []);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
+
+  const fetchClientDetail = async (clientId: string) => {
+    setLoadingDetail(true);
+    const [swData, txData, swFiles, txFiles] = await Promise.all([
+      supabase.from('survey_works').select('*, items:survey_work_items(*)').eq('client_id', clientId).order('created_at', { ascending: false }),
+      supabase.from('transactions').select('*, transaction_type:transaction_types(name), stage_statuses:transaction_stage_status(*)').eq('client_id', clientId).order('created_at', { ascending: false }),
+      supabase.from('survey_work_files').select('*, survey_work:survey_works(id, area_name, property_number)').eq('survey_work.client_id', clientId),
+      supabase.from('transaction_files').select('*, tss:transaction_stage_status(id, transaction:transactions(id, area_name, client_id))').eq('tss.transaction.client_id', clientId),
+    ]);
+
+    setClientSurveyWorks(swData.data || []);
+    setClientTransactions(txData.data || []);
+
+    const files: ClientFile[] = [];
+    for (const f of (swFiles.data || []) as any[]) {
+      files.push({
+        id: f.id, name: f.name, file_url: f.file_url,
+        context: 'مساحة', contextId: f.survey_work_id,
+        contextName: `${f.survey_work?.area_name || ''} - عقار ${f.survey_work?.property_number || ''}`,
+        created_at: f.created_at,
+      });
+    }
+    for (const f of (txFiles.data || []) as any[]) {
+      files.push({
+        id: f.id, name: f.name, file_url: f.file_url,
+        context: 'معاملة', contextId: f.transaction_stage_status_id,
+        contextName: f.tss?.transaction?.area_name || 'معاملة',
+        created_at: f.created_at,
+      });
+    }
+    setClientFiles(files);
+    setLoadingDetail(false);
+  };
+
+  useEffect(() => {
+    if (selected) fetchClientDetail(selected.id);
+    else {
+      setClientSurveyWorks([]);
+      setClientTransactions([]);
+      setClientFiles([]);
+    }
+  }, [selected?.id]);
 
   const filtered = clients.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -136,71 +194,18 @@ export default function Clients() {
         </div>
       </div>
 
-      {/* Client detail */}
+      {/* Client detail panel */}
       {selected && (
-        <div style={{
-          ...(isMobile ? {
-            position: 'fixed',
-            inset: 0,
-            width: '100vw',
-            height: '100vh',
-            background: 'rgba(14,14,14,0.95)',
-            backdropFilter: 'blur(20px)',
-            zIndex: 40,
-            overflow: 'auto',
-            padding: '12px',
-            display: 'flex',
-            flexDirection: 'column'
-          } : {
-            width: 300,
-            background: '#111',
-            borderRight: '1px solid #1e1e1e',
-            padding: 20,
-            overflow: 'auto'
-          })
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-            {isMobile && <button onClick={() => setSelected(null)} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#aaa', fontWeight: 600, fontSize: 12 }}>← رجوع</button>}
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#e8e8e8' }}>بطاقة الزبون</div>
-            {!isMobile && <button onClick={() => setSelected(null)} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#aaa' }}>
-              <X size={14} />
-            </button>}
-          </div>
-          <div style={{ width: 64, height: 64, borderRadius: 18, background: 'linear-gradient(135deg, #f97316, #d4952b)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: 'white' }}>{selected.name.charAt(0)}</span>
-          </div>
-          <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#e8e8e8' }}>{selected.name}</div>
-            <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
-              {new Date(selected.created_at).toLocaleDateString('ar-LB')}
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { icon: <Phone size={14} />, label: 'الهاتف', value: selected.phone },
-              { icon: <Mail size={14} />, label: 'الإيميل', value: selected.email },
-              { icon: <MapPin size={14} />, label: 'العنوان', value: selected.address },
-            ].map(({ icon, label, value }) => value && (
-              <div key={label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid #1e1e1e', borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ color: '#f97316' }}>{icon}</span>
-                <div>
-                  <div style={{ fontSize: 10, color: '#555', marginBottom: 2 }}>{label}</div>
-                  <div style={{ fontSize: 13, color: '#e8e8e8' }}>{value}</div>
-                </div>
-              </div>
-            ))}
-            {selected.notes && (
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid #1e1e1e', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 10, color: '#555', marginBottom: 4 }}>ملاحظات</div>
-                <div style={{ fontSize: 13, color: '#ccc' }}>{selected.notes}</div>
-              </div>
-            )}
-            <button onClick={() => openEdit(selected)} className="btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 12, fontSize: 13, fontWeight: 600, marginTop: 4 }}>
-              <Edit3 size={14} /> تعديل
-            </button>
-          </div>
-        </div>
+        <ClientDetailPanel
+          client={selected}
+          surveyWorks={clientSurveyWorks}
+          transactions={clientTransactions}
+          files={clientFiles}
+          loading={loadingDetail}
+          isMobile={isMobile}
+          onClose={() => setSelected(null)}
+          onEdit={() => openEdit(selected)}
+        />
       )}
 
       {/* Add/Edit Modal */}
@@ -248,6 +253,259 @@ export default function Clients() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ClientDetailPanel({ client, surveyWorks, transactions, files, loading, isMobile, onClose, onEdit }: {
+  client: Client;
+  surveyWorks: SurveyWork[];
+  transactions: Transaction[];
+  files: ClientFile[];
+  loading: boolean;
+  isMobile: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'works' | 'transactions' | 'files'>('overview');
+
+  const panelStyle = isMobile ? {
+    position: 'fixed' as const,
+    inset: 0,
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(14,14,14,0.97)',
+    backdropFilter: 'blur(20px)',
+    zIndex: 40,
+    overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column' as const
+  } : {
+    width: 420,
+    background: '#111',
+    borderRight: '1px solid #1e1e1e',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    height: '100vh',
+    overflow: 'hidden'
+  };
+
+  return (
+    <div style={panelStyle}>
+      {/* Header */}
+      <div style={{ padding: 16, borderBottom: '1px solid #1e1e1e' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          {isMobile && (
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#aaa', fontWeight: 600, fontSize: 12 }}>
+              ← رجوع
+            </button>
+          )}
+          <div style={{ fontWeight: 700, fontSize: 15, color: '#e8e8e8' }}>ملف الزبون</div>
+          {!isMobile && (
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#aaa' }}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #f97316, #d4952b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 22, fontWeight: 700, color: 'white' }}>{client.name.charAt(0)}</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#e8e8e8' }}>{client.name}</div>
+            <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
+              مسجل منذ {new Date(client.created_at).toLocaleDateString('ar-LB')}
+            </div>
+          </div>
+          <button onClick={onEdit} style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: '#f97316', fontSize: 12, fontWeight: 600 }}>
+            <Edit3 size={12} style={{ display: 'inline', marginLeft: 4 }} /> تعديل
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
+        {(['overview', 'works', 'transactions', 'files'] as const).map(tab => {
+          const labels = { overview: 'نظرة عامة', works: `الأعمال (${surveyWorks.length})`, transactions: `المعاملات (${transactions.length})`, files: `الملفات (${files.length})` };
+          return (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1, padding: 8, borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontSize: isMobile ? 10 : 11, fontWeight: 600, transition: 'all 0.2s',
+                background: activeTab === tab ? 'linear-gradient(135deg, #f97316, #d4952b)' : 'transparent',
+                color: activeTab === tab ? 'white' : '#666'
+              }}>
+              {labels[tab]}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', color: '#555', paddingTop: 40 }}>جاري التحميل...</div>
+        ) : (
+          <>
+            {activeTab === 'overview' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {client.phone && (
+                  <InfoRow icon={<Phone size={14} />} label="الهاتف" value={client.phone} />
+                )}
+                {client.email && (
+                  <InfoRow icon={<Mail size={14} />} label="الإيميل" value={client.email} />
+                )}
+                {client.address && (
+                  <InfoRow icon={<MapPin size={14} />} label="العنوان" value={client.address} />
+                )}
+                {client.notes && (
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid #1e1e1e', borderRadius: 10, padding: '10px 12px' }}>
+                    <div style={{ fontSize: 10, color: '#555', marginBottom: 4 }}>ملاحظات</div>
+                    <div style={{ fontSize: 13, color: '#ccc' }}>{client.notes}</div>
+                  </div>
+                )}
+
+                {/* Quick stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 8 }}>
+                  <StatCard label="أعمال مساحة" value={surveyWorks.length} color="#f97316" />
+                  <StatCard label="معاملات" value={transactions.length} color="#d4952b" />
+                  <StatCard label="ملفات" value={files.length} color="#4ade80" />
+                </div>
+
+                {/* Recent works */}
+                {surveyWorks.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 8 }}>آخر الأعمال</div>
+                    {surveyWorks.slice(0, 3).map(w => (
+                      <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#161616', border: '1px solid #1e1e1e', borderRadius: 10, marginBottom: 6 }}>
+                        <Ruler size={14} color="#f97316" />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, color: '#e8e8e8' }}>{w.area_name}</div>
+                          <div style={{ fontSize: 11, color: '#666' }}>عقار {w.property_number}</div>
+                        </div>
+                        <span className={`tag ${w.status === 'completed' ? 'tag-green' : 'tag-orange'}`}>
+                          {w.status === 'completed' ? 'مكتمل' : 'جاري'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'works' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {surveyWorks.length === 0 ? (
+                  <EmptyState icon={<Ruler size={28} />} text="لا توجد أعمال مساحة" />
+                ) : surveyWorks.map(w => (
+                  <div key={w.id} style={{ background: '#161616', border: '1px solid #1e1e1e', borderRadius: 12, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: '#e8e8e8' }}>{w.area_name}</div>
+                        <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>عقار {w.property_number} — {w.district}</div>
+                      </div>
+                      <span className={`tag ${w.status === 'completed' ? 'tag-green' : 'tag-orange'}`}>
+                        {w.status === 'completed' ? 'مكتمل' : 'جاري'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                      <div style={{ fontSize: 11, color: '#555', background: '#1e1e1e', padding: '4px 8px', borderRadius: 6 }}>
+                        {(w.items || []).filter(i => i.completed).length}/{(w.items || []).length} مراحل
+                      </div>
+                      <div style={{ fontSize: 11, color: '#555' }}>
+                        {new Date(w.created_at).toLocaleDateString('ar-LB')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'transactions' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {transactions.length === 0 ? (
+                  <EmptyState icon={<FileText size={28} />} text="لا توجد معاملات" />
+                ) : transactions.map(t => (
+                  <div key={t.id} style={{ background: '#161616', border: '1px solid #1e1e1e', borderRadius: 12, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: '#e8e8e8' }}>
+                          {(t.transaction_type as any)?.name || 'معاملة'}
+                        </div>
+                        {t.area_name && <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>{t.area_name}</div>}
+                      </div>
+                      <span className={`tag ${t.status === 'completed' ? 'tag-green' : 'tag-gold'}`}>
+                        {t.status === 'completed' ? 'مكتمل' : 'جاري'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                      <div style={{ fontSize: 11, color: '#555', background: '#1e1e1e', padding: '4px 8px', borderRadius: 6 }}>
+                        {(t.stage_statuses || []).filter(s => s.completed).length}/{(t.stage_statuses || []).length} مراحل
+                      </div>
+                      <div style={{ fontSize: 11, color: '#555' }}>
+                        {new Date(t.created_at).toLocaleDateString('ar-LB')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'files' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {files.length === 0 ? (
+                  <EmptyState icon={<Paperclip size={28} />} text="لا توجد ملفات" />
+                ) : files.map(f => (
+                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#161616', border: '1px solid #1e1e1e', borderRadius: 10 }}>
+                    <FileText size={14} color={f.context === 'مساحة' ? '#f97316' : '#d4952b'} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: '#e8e8e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                      <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>{f.contextName}</div>
+                    </div>
+                    <span className={`tag ${f.context === 'مساحة' ? 'tag-orange' : 'tag-gold'}`}>{f.context}</span>
+                    {f.file_url && (
+                      <a href={f.file_url} download target="_blank" rel="noreferrer" style={{ color: '#f97316', padding: 4 }}>
+                        <Download size={14} />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid #1e1e1e', borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <span style={{ color: '#f97316' }}>{icon}</span>
+      <div>
+        <div style={{ fontSize: 10, color: '#555', marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 13, color: '#e8e8e8' }}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px', textAlign: 'center' }}>
+      <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontSize: 10, color: '#666', marginTop: 4 }}>{label}</div>
+    </div>
+  );
+}
+
+function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <div style={{ textAlign: 'center', color: '#444', paddingTop: 40 }}>
+      <div style={{ marginBottom: 8 }}>{icon}</div>
+      <div style={{ fontSize: 13 }}>{text}</div>
     </div>
   );
 }

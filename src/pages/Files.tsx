@@ -203,7 +203,7 @@ function FileRow({ file, formatSize, isMobile, onDelete }: { file: FileEntry; fo
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 500, color: '#e8e8e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
         <div style={{ fontSize: isMobile ? 10 : 11, color: '#555', marginTop: 2, display: 'flex', gap: isMobile ? 6 : 10, flexWrap: 'wrap' }}>
-          <span>{file.area_name ?? ''}</span>
+          <span>{file.governorate ?? ''} / {file.district ?? ''} {file.area_name ? `- ${file.area_name}` : ''}</span>
           {file.file_size && <span>{formatSize(file.file_size)}</span>}
           <span className={`tag ${file.context === 'مساحة' ? 'tag-orange' : 'tag-gold'}`}>{file.context}</span>
         </div>
@@ -212,12 +212,12 @@ function FileRow({ file, formatSize, isMobile, onDelete }: { file: FileEntry; fo
         {file.file_url && (
           <a href={file.file_url} download target="_blank" rel="noreferrer"
             style={{ color: '#f97316', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 8, padding: isMobile ? '5px 6px' : '6px 8px', display: 'flex', flexShrink: 0, alignItems: 'center', gap: 3, fontSize: isMobile ? 9 : 11, fontWeight: 600, textDecoration: 'none' }}>
-            <Download size={isMobile ? 12 : 14} /> تنزيل
+            <Download size={isMobile ? 12 : 14} />
           </a>
         )}
         <button onClick={() => onDelete(file)}
           style={{ color: '#f87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 8, padding: isMobile ? '5px 6px' : '6px 8px', display: 'flex', flexShrink: 0, alignItems: 'center', gap: 3, fontSize: isMobile ? 9 : 11, fontWeight: 600, cursor: 'pointer' }}>
-          <Trash2 size={isMobile ? 12 : 14} /> حذف
+          <Trash2 size={isMobile ? 12 : 14} />
         </button>
       </div>
     </div>

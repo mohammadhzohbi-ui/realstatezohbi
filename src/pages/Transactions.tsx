@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, X, ChevronDown, ChevronRight, Folder, FolderOpen,
-  File, Download, Paperclip, User, MapPin, CheckSquare,
+  File, Download, User, MapPin, CheckSquare,
   Square, Trash2, Settings, FileText, Image, Check, ArrowLeft
 } from 'lucide-react';
 import { supabase, uploadFile } from '../lib/supabase';
 import { LEBANON_DATA, getDistricts } from '../lib/data/lebanon';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { FileUploadWithCamera, FileUploadProgress } from '../components/FileUploadWithCamera';
 import type { TransactionType, TransactionTypeStage, Transaction, TransactionStageStatus, Client } from '../types';
 
 type TabMode = 'types' | 'active' | 'library';
@@ -286,7 +287,7 @@ function TxDetailPanel({ tx, onClose, onToggleStage, onRefresh, isMobile }: {
   const stages = [...(tx.stage_statuses ?? [])].sort((a, b) => (a.stage?.order_index ?? 0) - (b.stage?.order_index ?? 0));
   const [openStage, setOpenStage] = useState<string | null>(null);
   const [stageNotes, setStageNotes] = useState<Record<string, string>>({});
-  const [fileToUpload, setFileToUpload] = useState<Record<string, File | null>>({});
+  const [filesToUpload, setFilesToUpload] = useState<Record<string, File[]>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [statusChanging, setStatusChanging] = useState(false);
 
@@ -297,15 +298,17 @@ function TxDetailPanel({ tx, onClose, onToggleStage, onRefresh, isMobile }: {
     onRefresh();
   };
 
-  const uploadStageFile = async (ssId: string) => {
-    const f = fileToUpload[ssId];
-    if (!f) return;
+  const uploadStageFiles = async (ssId: string) => {
+    const files = filesToUpload[ssId] || [];
+    if (files.length === 0) return;
     setSaving(s => ({ ...s, [`file_${ssId}`]: true }));
-    const url = await uploadFile(f, `transactions/${tx.id}/${ssId}/${Date.now()}_${f.name}`);
-    if (url) {
-      await supabase.from('transaction_files').insert({ transaction_stage_status_id: ssId, name: f.name, file_url: url, file_size: f.size, mime_type: f.type });
+    for (const f of files) {
+      const url = await uploadFile(f, `transactions/${tx.id}/${ssId}/${Date.now()}_${f.name}`);
+      if (url) {
+        await supabase.from('transaction_files').insert({ transaction_stage_status_id: ssId, name: f.name, file_url: url, file_size: f.size, mime_type: f.type });
+      }
     }
-    setFileToUpload(s => ({ ...s, [ssId]: null }));
+    setFilesToUpload(s => ({ ...s, [ssId]: [] }));
     setSaving(s => ({ ...s, [`file_${ssId}`]: false }));
     onRefresh();
   };
@@ -401,17 +404,24 @@ function TxDetailPanel({ tx, onClose, onToggleStage, onRefresh, isMobile }: {
                       {f.file_url && <a href={f.file_url} download target="_blank" rel="noreferrer" style={{ color: '#f97316', flexShrink: 0 }}><Download size={11} /></a>}
                     </div>
                   ))}
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', border: '1px dashed #333', borderRadius: 8, cursor: 'pointer', color: '#666', fontSize: 11, marginTop: 4, flexWrap: 'wrap' }}>
-                    <Paperclip size={11} />
-                    <span>{fileToUpload[ss.id] ? fileToUpload[ss.id]!.name : 'إضافة ملف'}</span>
-                    <input type="file" style={{ display: 'none' }} onChange={e => setFileToUpload(s => ({ ...s, [ss.id]: e.target.files?.[0] ?? null }))} />
-                  </label>
-                  {fileToUpload[ss.id] && (
-                    <button onClick={() => uploadStageFile(ss.id)} className="btn-primary"
-                      style={{ marginTop: 4, fontSize: 11, padding: '6px 12px', borderRadius: 7, fontWeight: 600, width: '100%' }}>
-                      {saving[`file_${ssId}`] ? 'رفع...' : 'رفع الملف'}
-                    </button>
-                  )}
+                  <div style={{ marginTop: 6 }}>
+                    <FileUploadWithCamera
+                      onFilesSelected={(fs) => setFilesToUpload(prev => ({ ...prev, [ss.id]: [...(prev[ss.id] || []), ...fs] }))}
+                      multiple={true}
+                      compact={true}
+                    />
+                    <FileUploadProgress
+                      files={filesToUpload[ss.id] || []}
+                      onRemove={(idx) => setFilesToUpload(prev => ({ ...prev, [ss.id]: (prev[ss.id] || []).filter((_, j) => j !== idx) }))}
+                      compact={true}
+                    />
+                    {(filesToUpload[ss.id]?.length || 0) > 0 && (
+                      <button onClick={() => uploadStageFiles(ss.id)} className="btn-primary"
+                        style={{ marginTop: 4, fontSize: 11, padding: '6px 12px', borderRadius: 7, fontWeight: 600, width: '100%' }}>
+                        {saving[`file_${ss.id}`] ? 'رفع...' : `رفع ${filesToUpload[ss.id]?.length || 0} ملفات`}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

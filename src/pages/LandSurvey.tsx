@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Search, X, ChevronDown, ChevronRight,
   Folder, FolderOpen, File, Download, CheckSquare,
-  Square, Paperclip, User, MapPin, BookOpen, Ruler,
+  Square, User, MapPin, BookOpen, Ruler,
   Trash2, Check
 } from 'lucide-react';
 import { supabase, uploadFile } from '../lib/supabase';
 import { LEBANON_DATA, getDistricts } from '../lib/data/lebanon';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { FileUploadWithCamera, FileUploadProgress } from '../components/FileUploadWithCamera';
 import type { SurveyWork, SurveyWorkItem, Client } from '../types';
 
 type ViewMode = 'active' | 'library';
@@ -317,10 +318,10 @@ function WorkDetailPanel({ work, onClose, onToggleItem, onRefresh, isMobile }: {
   work: SurveyWork; onClose: () => void;
   onToggleItem: (item: SurveyWorkItem) => void; onRefresh: () => void; isMobile: boolean;
 }) {
-  const [newNote, setNewNote] = useState(work.notes ?? '');
+  const [newNote, setNote] = useState(work.notes ?? '');
   const [savingNote, setSavingNote] = useState(false);
-  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [statusChanging, setStatusChanging] = useState(false);
 
   const saveNote = async () => {
@@ -330,18 +331,20 @@ function WorkDetailPanel({ work, onClose, onToggleItem, onRefresh, isMobile }: {
     onRefresh();
   };
 
-  const addFile = async () => {
-    if (!fileToUpload) return;
-    setUploadingFile(true);
-    const url = await uploadFile(fileToUpload, `survey/${work.id}/${Date.now()}_${fileToUpload.name}`);
-    if (url) {
-      await supabase.from('survey_work_files').insert({
-        survey_work_id: work.id, name: fileToUpload.name, file_url: url,
-        file_size: fileToUpload.size, mime_type: fileToUpload.type
-      });
+  const addFiles = async () => {
+    if (filesToUpload.length === 0) return;
+    setUploadingFiles(true);
+    for (const file of filesToUpload) {
+      const url = await uploadFile(file, `survey/${work.id}/${Date.now()}_${file.name}`);
+      if (url) {
+        await supabase.from('survey_work_files').insert({
+          survey_work_id: work.id, name: file.name, file_url: url,
+          file_size: file.size, mime_type: file.type
+        });
+      }
     }
-    setFileToUpload(null);
-    setUploadingFile(false);
+    setFilesToUpload([]);
+    setUploadingFiles(false);
     onRefresh();
   };
 
@@ -415,7 +418,7 @@ function WorkDetailPanel({ work, onClose, onToggleItem, onRefresh, isMobile }: {
           </button>
         </div>
 
-        {/* Required items */}
+        {/* Required items with completion dates */}
         <div>
           <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 10 }}>المراحل المطلوبة</div>
           {items.length === 0 ? (
@@ -428,10 +431,17 @@ function WorkDetailPanel({ work, onClose, onToggleItem, onRefresh, isMobile }: {
                     background: item.completed ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.03)',
                     border: `1px solid ${item.completed ? 'rgba(34,197,94,0.2)' : '#1e1e1e'}` }}>
                   {item.completed ? <CheckSquare size={15} color="#4ade80" /> : <Square size={15} color="#555" />}
-                  <span style={{ fontSize: 13, color: item.completed ? '#4ade80' : '#ccc',
-                    textDecoration: item.completed ? 'line-through' : 'none', opacity: item.completed ? 0.7 : 1 }}>
-                    {item.name}
-                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: item.completed ? '#4ade80' : '#ccc',
+                      textDecoration: item.completed ? 'line-through' : 'none', opacity: item.completed ? 0.7 : 1 }}>
+                      {item.name}
+                    </div>
+                    {item.completed && item.completed_at && (
+                      <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>
+                        تم الإنجاز: {new Date(item.completed_at).toLocaleDateString('ar-LB')}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -441,7 +451,7 @@ function WorkDetailPanel({ work, onClose, onToggleItem, onRefresh, isMobile }: {
         {/* Notes */}
         <div>
           <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 8 }}>ملاحظات</div>
-          <textarea value={newNote} onChange={e => setNewNote(e.target.value)} rows={3}
+          <textarea value={newNote} onChange={e => setNote(e.target.value)} rows={3}
             placeholder="أضف ملاحظات..."
             style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid #252525', borderRadius: 10, padding: '10px 12px', color: '#e8e8e8', fontSize: 13, resize: 'none' }} />
           <button onClick={saveNote} disabled={savingNote} className="btn-primary"
@@ -465,17 +475,16 @@ function WorkDetailPanel({ work, onClose, onToggleItem, onRefresh, isMobile }: {
               </div>
             ))}
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px dashed #333', borderRadius: 10, cursor: 'pointer', color: '#888', fontSize: 12 }}>
-            <Paperclip size={13} />
-            {fileToUpload ? fileToUpload.name : 'إضافة ملف'}
-            <input type="file" style={{ display: 'none' }} onChange={e => setFileToUpload(e.target.files?.[0] ?? null)} />
-          </label>
-          {fileToUpload && (
-            <button onClick={addFile} disabled={uploadingFile} className="btn-primary"
-              style={{ marginTop: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
-              {uploadingFile ? 'رفع...' : 'رفع الملف'}
-            </button>
-          )}
+          <div style={{ marginTop: 8 }}>
+            <FileUploadWithCamera onFilesSelected={(fs) => setFilesToUpload(prev => [...prev, ...fs])} multiple={true} compact={true} />
+            <FileUploadProgress files={filesToUpload} onRemove={(i) => setFilesToUpload(prev => prev.filter((_, j) => j !== i))} compact={true} />
+            {filesToUpload.length > 0 && (
+              <button onClick={addFiles} disabled={uploadingFiles} className="btn-primary"
+                style={{ marginTop: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, width: '100%' }}>
+                {uploadingFiles ? 'رفع...' : `رفع ${filesToUpload.length} ملفات`}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -572,16 +581,8 @@ function AddWorkModal({ clients, form, setForm, formItems, setFormItems, newItem
           </FF>
 
           <FF label="الملفات">
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px dashed #333', borderRadius: 10, cursor: 'pointer', color: '#888', fontSize: 13 }}>
-              <Paperclip size={14} />
-              {formFiles.length > 0 ? `${formFiles.length} ملف مختار` : 'إضافة ملفات'}
-              <input type="file" multiple style={{ display: 'none' }} onChange={e => setFormFiles(Array.from(e.target.files ?? []))} />
-            </label>
-            {formFiles.map((f, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, color: '#888' }}>
-                <File size={11} color="#d4952b" /> {f.name}
-              </div>
-            ))}
+            <FileUploadWithCamera onFilesSelected={(fs) => setFormFiles((prev: File[]) => [...prev, ...fs])} multiple={true} />
+            <FileUploadProgress files={formFiles} onRemove={(i) => setFormFiles((prev: File[]) => prev.filter((_, j) => j !== i))} />
           </FF>
         </div>
 

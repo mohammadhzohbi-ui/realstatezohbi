@@ -30,6 +30,7 @@ export interface SurveyWorkItem {
   name: string;
   completed: boolean;
   order_index: number;
+  completed_at?: string;
   created_at: string;
 }
 
